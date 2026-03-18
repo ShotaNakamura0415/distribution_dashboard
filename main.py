@@ -136,7 +136,8 @@ if portfolio_file:
                                     "区分": "予測(未入金)",
                                     "口座": acc_type
                                 })
-                except: 
+                except Exception as e: 
+                    print(f"【取得失敗】コード {code} のデータが yfinance から取得できませんでした。({e})")
                     pass
                 progress.progress((i + 1) / len(df_p))
 
