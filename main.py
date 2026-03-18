@@ -26,7 +26,8 @@ def load_dividend_history(file_content):
         if len(row) > 1 and "受渡日" in row and "銘柄名" in row:
             header_idx = i
             break
-    if header_idx == -1: return [], set()
+    if header_idx == -1: 
+        return [], set()
 
     header = lines[header_idx]
     data_rows = [row for row in lines[header_idx + 1:] if len(row) == len(header) and "/" in row[0]]
@@ -35,13 +36,14 @@ def load_dividend_history(file_content):
     df_hist["受取額(税引後・円)"] = pd.to_numeric(df_hist["受取額(税引後・円)"].str.replace(",", ""), errors="coerce")
     df_hist["数量"] = pd.to_numeric(df_hist["数量"].str.replace(",", ""), errors="coerce")
     
-    df_2026 = df_hist[df_hist["受渡日"].dt.year == 2026].dropna(subset=["受取額(税引後・円)"])
+    current_year = datetime.now().year
+    df_current_year = df_hist[df_hist["受渡日"].dt.year == current_year].dropna(subset=["受取額(税引後・円)"])
     
     actual_list = []
     paid_codes_this_month = set()
     current_month = datetime.now().month
 
-    for _, r in df_2026.iterrows():
+    for _, r in df_current_year.iterrows():
         code_match = re.search(r'(\d{4})', r["銘柄名"])
         code = code_match.group(1) if code_match else ""
         
@@ -134,7 +136,8 @@ if portfolio_file:
                                     "区分": "予測(未入金)",
                                     "口座": acc_type
                                 })
-                except: pass
+                except: 
+                    pass
                 progress.progress((i + 1) / len(df_p))
 
             df_all = pd.DataFrame(final_list)
