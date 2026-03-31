@@ -93,8 +93,8 @@ def load_portfolio_csv(file_content):
 
 # --- メインロジック ---
 st.sidebar.header("📁 CSVアップロード")
-portfolio_file = st.sidebar.file_uploader("1. 保有証券一覧CSV", type="csv")
-history_file = st.sidebar.file_uploader("2. 配当金実績CSV", type="csv")
+portfolio_file = st.sidebar.file_uploader("1. 保有証券一覧CSV(SaveFile.csv)", type="csv")
+history_file = st.sidebar.file_uploader("2. 配当金実績CSV(distribution.csv)", type="csv")
 
 if portfolio_file:
     df_p = load_portfolio_csv(portfolio_file.read())
@@ -107,6 +107,7 @@ if portfolio_file:
     if st.sidebar.button("配当計算・更新を実行"):
         with st.spinner("数量を含めた詳細データを生成中..."):
             final_list = actual_data_list.copy()
+            api_logs = []   #ログ格納用
             progress = st.progress(0)
             
             for i, row in df_p.iterrows():
@@ -117,7 +118,13 @@ if portfolio_file:
                     tk = yf.Ticker(f"{code}.T")
                     div_rate = tk.info.get("trailingAnnualDividendRate") or tk.info.get("dividendRate") or 0
                     hist = tk.dividends
-                    div_months = sorted(list(set([(m + 3 - 1) % 12 + 1 for m in hist.index.month]))) if not hist.empty else [6, 12]
+                    
+                    if not hist.empty:
+                    # 直近2件（1年分）の月だけを取り出す
+                        recent_months = hist.tail(2).index.month 
+                        div_months = sorted(list(set([(m + 3 - 1) % 12 + 1 for m in recent_months])))
+                    else:
+                        div_months = [6, 12]
                     
                     for pay_month in div_months:
                         if pay_month > current_month or (pay_month == current_month and code not in paid_codes_now):
@@ -178,10 +185,28 @@ if portfolio_file:
         if not month_detail.empty:
             # 数量列を追加した並び順
             disp_df = month_detail[["区分", "口座", "コード", "銘柄名", "数量", "税引前金額", "入金額"]]
+            
+            # --- ここから追加・修正 ---
+            def format_with_unit_price(row):
+                val = row["税引前金額"]
+                qty = row["数量"]
+                if qty > 0:
+                    unit_price = val / qty
+                    # 金額(1株単価) の形式で文字列を作成
+                    return f"{val:,.0f} ({unit_price:,.0f})"
+                else:
+                    return f"{val:,.0f} (0)"
+
+            # 新しい表示スタイルを適用
+            disp_df["税引前金額(単価)"] = disp_df.apply(format_with_unit_price, axis=1)
+            
+            # 列の並び替えと選択
+            show_cols = ["区分", "口座", "コード", "銘柄名", "数量", "税引前金額(単価)", "入金額"]
+            # --- ここまで ---
+            
             st.dataframe(
-                disp_df.style.format({
+                disp_df[show_cols].style.format({
                     "数量": "{:,.0f}",
-                    "税引前金額": "{:,.0f}", 
                     "入金額": "{:,.0f}"
                 }),
                 width='stretch', hide_index=True
